@@ -3,6 +3,8 @@ import { nanoid } from "nanoid";
 import { getAI, MODEL } from "@/lib/wenwen";
 import { getDB } from "@/lib/db";
 
+export const runtime = "edge";
+
 export async function POST(req: Request) {
   try {
     const { resume, jobDescription } = await req.json();

@@ -2,6 +2,8 @@ import { getAI, MODEL } from "@/lib/wenwen";
 import { sendResultEmail } from "@/lib/resend";
 import { getDB } from "@/lib/db";
 
+export const runtime = "edge";
+
 export async function POST(req: Request) {
   const body = await req.text();
 
