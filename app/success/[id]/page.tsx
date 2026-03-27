@@ -1,6 +1,9 @@
 "use client";
 
+export const runtime = "edge";
+
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 interface WhyItWorks {
@@ -32,6 +35,7 @@ interface SuccessData {
   id: string;
   isPaid: boolean;
   fullSuggestions: FullSuggestions;
+  _testMode?: boolean;
 }
 
 function SuggestionCard({ item }: { item: any }) {
@@ -100,6 +104,11 @@ function SuggestionCard({ item }: { item: any }) {
 }
 
 export default function SuccessPage({ params }: { params: { id: string } }) {
+  const searchParams = useSearchParams();
+  const isTestMode =
+    process.env.NEXT_PUBLIC_ENABLE_TEST_UNLOCK === "true" &&
+    searchParams.get("test") === "1";
+
   const [data, setData] = useState<SuccessData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -109,6 +118,21 @@ export default function SuccessPage({ params }: { params: { id: string } }) {
     const load = async () => {
       const res = await fetch(`/api/result/${params.id}`);
       const d = await res.json();
+      
+      // 测试模式放行
+      if (isTestMode) {
+        if (d.fullSuggestions) {
+          setData({ ...d, _testMode: true });
+        } else {
+          setError(
+            "⚠️ 测试模式：当前记录没有完整报告数据（fullSuggestions 不存在）。请使用已完成支付并生成完整报告的记录 ID 进行测试。"
+          );
+        }
+        setLoading(false);
+        return;
+      }
+      
+      // 生产模式：原有逻辑
       if (d.isPaid && d.fullSuggestions) {
         setData(d);
         setLoading(false);
@@ -121,7 +145,7 @@ export default function SuccessPage({ params }: { params: { id: string } }) {
       }
     };
     load().catch(() => { setError("Failed to load."); setLoading(false); });
-  }, [params.id]);
+  }, [params.id, isTestMode]);
 
   useEffect(() => {
     if (!polling) return;
@@ -172,6 +196,13 @@ export default function SuccessPage({ params }: { params: { id: string } }) {
       </header>
 
       <div className="mx-auto max-w-4xl px-4 py-10">
+        {/* 测试模式提示 Banner */}
+        {data._testMode && (
+          <div className="rounded-lg border-2 border-yellow-400 bg-yellow-50 px-4 py-3 text-sm font-semibold text-yellow-900 mb-6">
+            ⚠️ 测试模式 — 当前会话未经支付验证，仅用于开发测试
+          </div>
+        )}
+
         {/* Banner */}
         <div className="rounded-2xl bg-blue-600 text-white p-8 mb-6 text-center">
           <div className="text-5xl mb-3">🎉</div>
