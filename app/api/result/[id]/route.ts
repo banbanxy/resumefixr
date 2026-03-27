@@ -155,27 +155,27 @@ export async function GET(
   if (params.id === "demo") return NextResponse.json(MOCK_RESULT);
   if (params.id === "demo-paid") return NextResponse.json(MOCK_PAID_RESULT);
 
-  // 生产环境：查本地 SQLite
+  // 生产环境：查 D1 数据库
   try {
-    const db = getDB();
-    const row = db.prepare("SELECT * FROM submissions WHERE id = ?").get(params.id) as any;
+    const db = getDB(_req);
+    const result = await db.prepare("SELECT * FROM submissions WHERE id = ?").bind(params.id).first();
 
-    if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!result) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    if (!row.is_paid) {
+    if (!result.is_paid) {
       return NextResponse.json({
-        id: row.id,
-        diagnostics: JSON.parse(row.diagnostics),
-        previewExamples: JSON.parse(row.preview_examples),
+        id: result.id,
+        diagnostics: JSON.parse(result.diagnostics as string),
+        previewExamples: JSON.parse(result.preview_examples as string),
         isPaid: false,
       });
     }
 
     return NextResponse.json({
-      id: row.id,
-      diagnostics: JSON.parse(row.diagnostics),
-      previewExamples: JSON.parse(row.preview_examples),
-      fullSuggestions: JSON.parse(row.full_suggestions),
+      id: result.id,
+      diagnostics: JSON.parse(result.diagnostics as string),
+      previewExamples: JSON.parse(result.preview_examples as string),
+      fullSuggestions: JSON.parse(result.full_suggestions as string),
       isPaid: true,
     });
   } catch (e) {

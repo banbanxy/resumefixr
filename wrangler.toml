@@ -6,7 +6,7 @@ pages_build_output_dir = ".vercel/output/static"
 [[d1_databases]]
 binding = "DB"
 database_name = "resumefixr"
-database_id = "REPLACE_WITH_YOUR_DATABASE_ID"
+database_id = "eccc1d04-4cb9-4839-82be-8d3a36a2b854"
 
 [vars]
 NEXT_PUBLIC_SITE_URL = "https://your-domain.com"

@@ -29,20 +29,20 @@ export async function POST(req: Request) {
   }
 
   try {
-    const db = getDB();
+    const db = getDB(req);
 
     // 防止重复处理
-    const existing = db.prepare("SELECT id FROM submissions WHERE paypal_txn_id = ?").get(txnId);
+    const existing = await db.prepare("SELECT id FROM submissions WHERE paypal_txn_id = ?").bind(txnId).first();
     if (existing) return new Response("OK", { status: 200 });
 
-    const row = db.prepare("SELECT * FROM submissions WHERE id = ?").get(submissionId) as any;
+    const row = await db.prepare("SELECT * FROM submissions WHERE id = ?").bind(submissionId).first();
     if (!row) return new Response("OK", { status: 200 });
 
-    const fullSuggestions = await generateFullSuggestions(row.resume_text, row.job_description);
+    const fullSuggestions = await generateFullSuggestions(row.resume_text as string, row.job_description as string);
 
-    db.prepare(
+    await db.prepare(
       `UPDATE submissions SET is_paid=1, paypal_txn_id=?, amount_paid=?, full_suggestions=?, email=?, paid_at=datetime('now') WHERE id=?`
-    ).run(txnId, amount, JSON.stringify(fullSuggestions), email, submissionId);
+    ).bind(txnId, amount, JSON.stringify(fullSuggestions), email, submissionId).run();
 
     if (email) await sendResultEmail(email, submissionId);
   } catch (error) {

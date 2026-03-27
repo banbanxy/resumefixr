@@ -17,13 +17,13 @@ export async function POST(req: Request) {
     ]);
 
     const id = nanoid();
-    const db = getDB();
-    db.prepare(
+    const db = getDB(req);
+    await db.prepare(
       `INSERT INTO submissions (id, resume_text, job_description, diagnostics, preview_examples)
        VALUES (?, ?, ?, ?, ?)`
-    ).run(id, resume, jobDescription,
+    ).bind(id, resume, jobDescription,
       JSON.stringify(diagnostics),
-      JSON.stringify(previewExamples));
+      JSON.stringify(previewExamples)).run();
 
     return NextResponse.json({ id, diagnostics, previewExamples });
   } catch (error) {

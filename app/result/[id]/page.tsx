@@ -207,7 +207,7 @@ export default function ResultPage({ params }: { params: { id: string } }) {
         {/* Paywall */}
         <PaywallSection
           submissionId={data.id}
-          remainingCount={diagnostics.totalIssues - 2}
+          riskLevel={diagnostics.keywordMatch < 50 ? "high" : diagnostics.keywordMatch < 70 ? "moderate" : "low"}
         />
       </div>
     </main>
