@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDB } from "@/lib/db";
 
-export const runtime = "edge";
 
 // Mock 数据用于本地预览
 const MOCK_RESULT = {
