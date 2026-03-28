@@ -1,8 +1,6 @@
 "use client";
 
-export const runtime = "edge";
-
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -103,7 +101,8 @@ function SuggestionCard({ item }: { item: any }) {
   );
 }
 
-export default function SuccessPage({ params }: { params: { id: string } }) {
+export default function SuccessPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const searchParams = useSearchParams();
   const isTestMode =
     process.env.NEXT_PUBLIC_ENABLE_TEST_UNLOCK === "true" &&
@@ -116,9 +115,9 @@ export default function SuccessPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     const load = async () => {
-      const res = await fetch(`/api/result/${params.id}`);
+      const res = await fetch(`/api/result/${id}`);
       const d = await res.json();
-      
+
       // 测试模式放行
       if (isTestMode) {
         if (d.fullSuggestions) {
@@ -131,7 +130,7 @@ export default function SuccessPage({ params }: { params: { id: string } }) {
         setLoading(false);
         return;
       }
-      
+
       // 生产模式：原有逻辑
       if (d.isPaid && d.fullSuggestions) {
         setData(d);
@@ -145,17 +144,17 @@ export default function SuccessPage({ params }: { params: { id: string } }) {
       }
     };
     load().catch(() => { setError("Failed to load."); setLoading(false); });
-  }, [params.id, isTestMode]);
+  }, [id, isTestMode]);
 
   useEffect(() => {
     if (!polling) return;
     const interval = setInterval(async () => {
-      const res = await fetch(`/api/result/${params.id}`);
+      const res = await fetch(`/api/result/${id}`);
       const d = await res.json();
       if (d.isPaid && d.fullSuggestions) { setData(d); setPolling(false); }
     }, 3000);
     return () => clearInterval(interval);
-  }, [polling, params.id]);
+  }, [polling, id]);
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center">

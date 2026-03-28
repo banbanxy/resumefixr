@@ -1,8 +1,6 @@
 "use client";
 
-export const runtime = "edge";
-
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { PaywallSection } from "@/components/PaywallSection";
 
 interface Diagnostic {
@@ -43,13 +41,14 @@ const severityColor = {
   low: "bg-green-100 text-green-700 border-green-200",
 };
 
-export default function ResultPage({ params }: { params: { id: string } }) {
+export default function ResultPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const [data, setData] = useState<ResultData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch(`/api/result/${params.id}`)
+    fetch(`/api/result/${id}`)
       .then((r) => r.json())
       .then((d) => {
         if (d.error) setError("Result not found.");
@@ -57,7 +56,7 @@ export default function ResultPage({ params }: { params: { id: string } }) {
       })
       .catch(() => setError("Failed to load results."))
       .finally(() => setLoading(false));
-  }, [params.id]);
+  }, [id]);
 
   if (loading) {
     return (

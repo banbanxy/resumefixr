@@ -151,16 +151,17 @@ const MOCK_PAID_RESULT = {
 
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   // 本地 mock 模式
-  if (params.id === "demo") return NextResponse.json(MOCK_RESULT);
-  if (params.id === "demo-paid") return NextResponse.json(MOCK_PAID_RESULT);
+  if (id === "demo") return NextResponse.json(MOCK_RESULT);
+  if (id === "demo-paid") return NextResponse.json(MOCK_PAID_RESULT);
 
   // 生产环境：查 D1 数据库
   try {
     const db = getDB(_req);
-    const result = await db.prepare("SELECT * FROM submissions WHERE id = ?").bind(params.id).first();
+    const result = await db.prepare("SELECT * FROM submissions WHERE id = ?").bind(id).first();
 
     if (!result) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
