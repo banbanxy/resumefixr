@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -101,7 +101,7 @@ function SuggestionCard({ item }: { item: any }) {
   );
 }
 
-export default function SuccessPage({ params }: { params: Promise<{ id: string }> }) {
+function SuccessContent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const searchParams = useSearchParams();
   const isTestMode =
@@ -242,5 +242,17 @@ export default function SuccessPage({ params }: { params: Promise<{ id: string }
         </div>
       </div>
     </main>
+  );
+}
+
+export default function SuccessPage({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin h-10 w-10 border-4 border-blue-600 border-t-transparent rounded-full" />
+      </div>
+    }>
+      <SuccessContent params={params} />
+    </Suspense>
   );
 }

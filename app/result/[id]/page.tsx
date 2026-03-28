@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useState, Suspense } from "react";
 import { PaywallSection } from "@/components/PaywallSection";
 
 interface Diagnostic {
@@ -41,7 +41,7 @@ const severityColor = {
   low: "bg-green-100 text-green-700 border-green-200",
 };
 
-export default function ResultPage({ params }: { params: Promise<{ id: string }> }) {
+function ResultContent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [data, setData] = useState<ResultData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -212,5 +212,17 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
         />
       </div>
     </main>
+  );
+}
+
+export default function ResultPage({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin h-10 w-10 border-4 border-blue-600 border-t-transparent rounded-full" />
+      </div>
+    }>
+      <ResultContent params={params} />
+    </Suspense>
   );
 }
