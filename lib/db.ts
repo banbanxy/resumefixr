@@ -1,5 +1,6 @@
 // Cloudflare D1 数据库适配
-// 在 Cloudflare Pages 环境中，通过 request 上下文获取 D1 binding
+// 生产环境：通过 request 上下文获取 D1 binding
+// 本地开发：自动 fallback 到 better-sqlite3
 
 // 最小 D1 类型定义（避免引入完整 @cloudflare/workers-types）
 interface D1PreparedStatement {
@@ -26,13 +27,66 @@ export interface Env {
   DB: D1Database;
 }
 
+// ── 本地 SQLite fallback ───────────────────────────────────────────────────
+let _localDB: D1Database | null = null;
+
+function getLocalDB(): D1Database {
+  if (_localDB) return _localDB;
+
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const Database = require("better-sqlite3");
+  const db = new Database("local-dev.sqlite");
+
+  // 初始化表结构
+  db.exec(INIT_SQL);
+
+  // 将 better-sqlite3 同步接口包装成 D1 异步接口
+  function wrap(query: string, params: any[] = []): D1PreparedStatement {
+    const stmt = { query, params: [...params] };
+    const api: D1PreparedStatement = {
+      bind(...values: any[]) {
+        stmt.params = values;
+        return api;
+      },
+      async first<T>(): Promise<T | null> {
+        const s = db.prepare(stmt.query);
+        return (s.get(...stmt.params) as T) ?? null;
+      },
+      async run(): Promise<D1Result> {
+        const s = db.prepare(stmt.query);
+        s.run(...stmt.params);
+        return { success: true };
+      },
+      async all<T>(): Promise<D1Result<T>> {
+        const s = db.prepare(stmt.query);
+        return { results: s.all(...stmt.params) as T[], success: true };
+      },
+    };
+    return api;
+  }
+
+  _localDB = {
+    prepare: (query: string) => wrap(query),
+    dump: async () => new ArrayBuffer(0),
+    batch: async () => [],
+    exec: async (query: string) => { db.exec(query); return { success: true }; },
+  };
+
+  return _localDB;
+}
+
+// ── 对外接口 ───────────────────────────────────────────────────────────────
 export function getDB(request: Request): D1Database {
   // @ts-ignore - Cloudflare Workers 环境变量
   const env = (request as any).env as Env;
-  if (!env?.DB) {
-    throw new Error("D1 database not bound. Check wrangler.toml configuration.");
+  if (env?.DB) return env.DB;
+
+  // 本地开发模式：使用 SQLite
+  if (process.env.NODE_ENV === "development") {
+    return getLocalDB();
   }
-  return env.DB;
+
+  throw new Error("D1 database not bound. Check wrangler.toml configuration.");
 }
 
 // 初始化数据库表结构（需要在 D1 控制台或 wrangler 中执行）

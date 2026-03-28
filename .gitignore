@@ -1,6 +1,10 @@
 .env.local
 local.db
 local.db-journal
+local-dev.sqlite
+test-pages.mjs
+test-report.md
+test-screenshots/
 .next/
 node_modules/
 *.tar.gz
