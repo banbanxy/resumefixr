@@ -28,11 +28,37 @@ interface PreviewExample {
   improved: string;
 }
 
+interface WhyItWorks {
+  jd_requirement: string;
+  keyword_added: string;
+  expression_fix: string;
+}
+
+interface FullItem {
+  original: string;
+  rewrite: string;
+  keyword_source: string;
+  why_it_works: WhyItWorks;
+  impact: "high" | "medium" | "low";
+}
+
+interface FullCategory {
+  name: string;
+  count: number;
+  items: FullItem[];
+}
+
+interface FullSuggestions {
+  summary: { totalSuggestions: number; estimatedImpact: string };
+  categories: FullCategory[];
+}
+
 interface ResultData {
   id: string;
   diagnostics: DiagnosticsData;
   previewExamples: { examples: PreviewExample[] };
   isPaid: boolean;
+  fullSuggestions?: FullSuggestions;
 }
 
 const severityColor = {
@@ -225,39 +251,108 @@ function ResultContent({ params }: { params: Promise<{ id: string }> }) {
           ))}
         </div>
 
-        {/* Free preview */}
-        <h3 className="text-xl font-bold text-gray-900 mb-4">How we fix it (Free Preview)</h3>
-        <p className="text-gray-600 mb-4">Here's how we rewrite your experience to bypass the ATS and impress human recruiters.</p>
-        
-        <div className="space-y-5 mb-10">
-          {previewExamples.examples.map((ex, i) => (
-            <div key={i} className="rounded-xl bg-white border border-gray-200 p-0 shadow-sm overflow-hidden">
-              <div className="p-5 border-b border-gray-100 bg-gray-50 flex gap-4">
-                <div className="shrink-0">
-                  <span className="inline-flex items-center justify-center px-2 py-1 rounded text-xs font-bold bg-red-100 text-red-700 uppercase">
-                    Problem
-                  </span>
-                </div>
-                <p className="text-gray-600">{ex.original}</p>
-              </div>
-              <div className="p-5 flex gap-4 bg-white relative">
-                <div className="absolute left-0 top-0 bottom-0 w-1 bg-green-500"></div>
-                <div className="shrink-0">
-                  <span className="inline-flex items-center justify-center px-2 py-1 rounded text-xs font-bold bg-green-100 text-green-700 uppercase">
-                    Fixed
-                  </span>
-                </div>
-                <p className="text-gray-900 font-medium">{ex.improved}</p>
+        {/* Free preview OR Full paid report */}
+        {data.isPaid && data.fullSuggestions ? (
+          /* ── 付费完整版报告 ─────────────────────────────── */
+          <div className="space-y-6 mb-10">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-2xl">✅</span>
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">Your Full Rewrite Report</h3>
+                <p className="text-sm text-gray-500 mt-0.5">{data.fullSuggestions.summary.estimatedImpact}</p>
               </div>
             </div>
-          ))}
-        </div>
 
-        {/* Paywall */}
-        <PaywallSection
-          submissionId={data.id}
-          riskLevel={riskLevel === "high" ? "high" : riskLevel === "medium" ? "moderate" : "low"}
-        />
+            {data.fullSuggestions.categories.map((cat, ci) => (
+              <div key={ci} className="rounded-2xl bg-white border border-gray-200 shadow-sm overflow-hidden">
+                {/* Category Header */}
+                <div className="px-6 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                  <span className="font-bold text-gray-800 text-base">📂 {cat.name}</span>
+                  <span className="text-xs text-gray-400 font-medium">{cat.items.length} suggestions</span>
+                </div>
+
+                <div className="divide-y divide-gray-100">
+                  {cat.items.map((item, ii) => {
+                    const impactCfg = {
+                      high:   { bg: "bg-red-100",    text: "text-red-700",    label: "HIGH" },
+                      medium: { bg: "bg-yellow-100", text: "text-yellow-700", label: "MEDIUM" },
+                      low:    { bg: "bg-blue-100",   text: "text-blue-700",   label: "LOW" },
+                    }[item.impact] ?? { bg: "bg-gray-100", text: "text-gray-600", label: item.impact.toUpperCase() };
+
+                    return (
+                      <div key={ii} className="p-5">
+                        {/* Impact badge + keyword source */}
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className={`inline-flex px-2 py-0.5 rounded text-xs font-bold uppercase ${impactCfg.bg} ${impactCfg.text}`}>
+                            {impactCfg.label} IMPACT
+                          </span>
+                          <span className="text-xs text-gray-400">·</span>
+                          <span className="text-xs text-gray-500">{item.keyword_source}</span>
+                        </div>
+
+                        {/* Original → Rewrite */}
+                        <div className="rounded-lg border border-gray-100 overflow-hidden mb-3">
+                          <div className="bg-red-50 px-4 py-3 flex gap-3">
+                            <span className="shrink-0 inline-flex px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700 uppercase h-fit">Before</span>
+                            <p className="text-gray-700 text-sm">{item.original}</p>
+                          </div>
+                          <div className="bg-green-50 px-4 py-3 flex gap-3 relative">
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-green-500" />
+                            <span className="shrink-0 inline-flex px-2 py-0.5 rounded text-xs font-bold bg-green-100 text-green-700 uppercase h-fit ml-2">After</span>
+                            <p className="text-gray-900 text-sm font-medium">{item.rewrite}</p>
+                          </div>
+                        </div>
+
+                        {/* Why it works */}
+                        <div className="rounded-lg bg-blue-50 border border-blue-100 px-4 py-3 text-xs space-y-1">
+                          <p><span className="font-semibold text-blue-800">JD Requirement:</span> <span className="text-blue-700">{item.why_it_works.jd_requirement}</span></p>
+                          <p><span className="font-semibold text-blue-800">Keywords Added:</span> <span className="text-blue-700">{item.why_it_works.keyword_added}</span></p>
+                          <p><span className="font-semibold text-blue-800">Expression Fix:</span> <span className="text-blue-700">{item.why_it_works.expression_fix}</span></p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          /* ── 免费预览 + Paywall ─────────────────────────── */
+          <>
+            <h3 className="text-xl font-bold text-gray-900 mb-4">How we fix it (Free Preview)</h3>
+            <p className="text-gray-600 mb-4">Here's how we rewrite your experience to bypass the ATS and impress human recruiters.</p>
+
+            <div className="space-y-5 mb-10">
+              {previewExamples.examples.map((ex, i) => (
+                <div key={i} className="rounded-xl bg-white border border-gray-200 p-0 shadow-sm overflow-hidden">
+                  <div className="p-5 border-b border-gray-100 bg-gray-50 flex gap-4">
+                    <div className="shrink-0">
+                      <span className="inline-flex items-center justify-center px-2 py-1 rounded text-xs font-bold bg-red-100 text-red-700 uppercase">
+                        Problem
+                      </span>
+                    </div>
+                    <p className="text-gray-600">{ex.original}</p>
+                  </div>
+                  <div className="p-5 flex gap-4 bg-white relative">
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-green-500"></div>
+                    <div className="shrink-0">
+                      <span className="inline-flex items-center justify-center px-2 py-1 rounded text-xs font-bold bg-green-100 text-green-700 uppercase">
+                        Fixed
+                      </span>
+                    </div>
+                    <p className="text-gray-900 font-medium">{ex.improved}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Paywall */}
+            <PaywallSection
+              submissionId={data.id}
+              riskLevel={riskLevel === "high" ? "high" : riskLevel === "medium" ? "moderate" : "low"}
+            />
+          </>
+        )}
       </div>
     </main>
   );
