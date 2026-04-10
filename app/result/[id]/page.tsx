@@ -82,6 +82,55 @@ function ResultContent({ params }: { params: Promise<{ id: string }> }) {
   const totalKeywords = gap ? gap.required.length : 0;
   const matchCount = gap ? gap.found.length : 0;
 
+  // ── 动态风险等级 ─────────────────────────────────────────────
+  const kw = diagnostics.keywordMatch;
+  const riskLevel: "high" | "medium" | "low" =
+    kw < 50 ? "high" : kw < 75 ? "medium" : "low";
+
+  const RISK_CONFIG = {
+    high: {
+      icon: "⚠️",
+      label: "High Risk of ATS Rejection",
+      headerBg: "bg-red-50 border-red-100",
+      headerText: "text-red-900",
+      cardBorder: "border-red-100",
+      circleColor: "text-red-500",
+      scoreColor: "text-red-600",
+      message:
+        "Your resume is likely being filtered out before a human ever sees it. The keyword gap is significant — but fixable.",
+      missingLabel: "text-red-600",
+      missingChipBg: "bg-red-50 border-red-100 text-red-700",
+    },
+    medium: {
+      icon: "🔶",
+      label: "Moderate Risk — Improvements Needed",
+      headerBg: "bg-yellow-50 border-yellow-100",
+      headerText: "text-yellow-900",
+      cardBorder: "border-yellow-100",
+      circleColor: "text-yellow-500",
+      scoreColor: "text-yellow-600",
+      message:
+        "Your resume passes some filters, but is missing key terms that could push you past the competition. Small fixes can make a big difference.",
+      missingLabel: "text-yellow-700",
+      missingChipBg: "bg-yellow-50 border-yellow-200 text-yellow-800",
+    },
+    low: {
+      icon: "✅",
+      label: "Low Risk — Strong Match",
+      headerBg: "bg-green-50 border-green-100",
+      headerText: "text-green-900",
+      cardBorder: "border-green-100",
+      circleColor: "text-green-500",
+      scoreColor: "text-green-600",
+      message:
+        "Your resume aligns well with the job description. Fine-tune a few remaining gaps to maximize your chances.",
+      missingLabel: "text-green-700",
+      missingChipBg: "bg-green-50 border-green-200 text-green-800",
+    },
+  } as const;
+
+  const cfg = RISK_CONFIG[riskLevel];
+
   return (
     <main className="min-h-screen bg-gray-50 pb-20">
       <header className="border-b bg-white">
@@ -92,15 +141,15 @@ function ResultContent({ params }: { params: Promise<{ id: string }> }) {
       </header>
 
       <div className="mx-auto max-w-3xl px-4 py-8">
-        {/* The "3 seconds to shock" Header Banner */}
-        <div className="rounded-2xl bg-white border-2 border-red-100 shadow-lg mb-8 overflow-hidden">
-          <div className="bg-red-50 px-6 py-4 border-b border-red-100 flex items-center gap-3">
-            <span className="text-2xl">⚠️</span>
-            <h1 className="text-xl font-bold text-red-900">
-              High risk of ATS rejection
+        {/* Dynamic Risk Banner */}
+        <div className={`rounded-2xl bg-white border-2 ${cfg.cardBorder} shadow-lg mb-8 overflow-hidden`}>
+          <div className={`${cfg.headerBg} px-6 py-4 border-b flex items-center gap-3`}>
+            <span className="text-2xl">{cfg.icon}</span>
+            <h1 className={`text-xl font-bold ${cfg.headerText}`}>
+              {cfg.label}
             </h1>
           </div>
-          
+
           <div className="p-6 md:p-8 flex flex-col md:flex-row gap-8 items-center">
             {/* Score Circle */}
             <div className="relative flex-shrink-0">
@@ -109,35 +158,34 @@ function ResultContent({ params }: { params: Promise<{ id: string }> }) {
                 <circle
                   cx="64" cy="64" r="56" stroke="currentColor" strokeWidth="12" fill="transparent"
                   strokeDasharray={351.8}
-                  strokeDashoffset={351.8 - (351.8 * diagnostics.keywordMatch) / 100}
-                  className={diagnostics.keywordMatch < 50 ? "text-red-500" : "text-yellow-500"}
+                  strokeDashoffset={351.8 - (351.8 * kw) / 100}
+                  className={cfg.circleColor}
                   strokeLinecap="round"
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className={`text-3xl font-extrabold ${diagnostics.keywordMatch < 50 ? "text-red-600" : "text-yellow-600"}`}>
-                  {diagnostics.keywordMatch}%
+                <span className={`text-3xl font-extrabold ${cfg.scoreColor}`}>
+                  {kw}%
                 </span>
+                <span className="text-xs text-gray-400 mt-0.5">match</span>
               </div>
             </div>
 
             {/* Core Message */}
             <div className="flex-1">
               <h2 className="text-lg font-bold text-gray-900 mb-2">
-                Your resume matches only {matchCount} of {totalKeywords} required skills
+                Your resume matches {matchCount} of {totalKeywords} required skills
               </h2>
-              <p className="text-gray-600 mb-4">
-                Recruiters use ATS software to filter out resumes that lack specific keywords from the job description. Yours is missing critical terms.
-              </p>
-              
+              <p className="text-gray-600 mb-4">{cfg.message}</p>
+
               {gap && gap.missing.length > 0 && (
                 <div>
-                  <div className="text-xs font-bold text-red-600 uppercase tracking-wide mb-2">
-                    Missing Critical Keywords:
+                  <div className={`text-xs font-bold uppercase tracking-wide mb-2 ${cfg.missingLabel}`}>
+                    Missing Keywords:
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {gap.missing.slice(0, 5).map((kw, i) => (
-                      <span key={i} className="rounded-md bg-red-50 border border-red-100 px-2 py-1 text-xs font-semibold text-red-700">
+                      <span key={i} className={`rounded-md border px-2 py-1 text-xs font-semibold ${cfg.missingChipBg}`}>
                         {kw}
                       </span>
                     ))}
@@ -208,7 +256,7 @@ function ResultContent({ params }: { params: Promise<{ id: string }> }) {
         {/* Paywall */}
         <PaywallSection
           submissionId={data.id}
-          riskLevel={diagnostics.keywordMatch < 50 ? "high" : diagnostics.keywordMatch < 70 ? "moderate" : "low"}
+          riskLevel={riskLevel === "high" ? "high" : riskLevel === "medium" ? "moderate" : "low"}
         />
       </div>
     </main>
