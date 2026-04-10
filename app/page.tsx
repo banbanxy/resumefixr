@@ -3,38 +3,47 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+// ── 错误分级提示映射 ─────────────────────────────────────────
+const ERROR_MESSAGES: Record<string, { title: string; hint: string }> = {
+  missing_fields: {
+    title: "Please fill in both fields.",
+    hint: "Both your resume and job description are required.",
+  },
+  ai_timeout: {
+    title: "Analysis timed out ⏱",
+    hint: "The AI took too long to respond. Please click Retry.",
+  },
+  ai_rate_limit: {
+    title: "AI service is busy 🔄",
+    hint: "Too many requests right now. Please wait a moment and retry.",
+  },
+  parse_error: {
+    title: "Unexpected AI response",
+    hint: "The AI returned an unreadable result. Please try again.",
+  },
+  analysis_failed: {
+    title: "Network hiccup 🌐",
+    hint: "The request failed due to a network issue. Please click Retry.",
+  },
+};
+
 export default function HomePage() {
   const router = useRouter();
   const [resume, setResume] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [loading, setLoading] = useState(false);
-  const [loadingStep, setLoadingStep] = useState(0);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<{ title: string; hint: string } | null>(null);
 
-  const [loadingStep, setLoadingStep] = useState(0);
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
 
-  // 友好错误提示映射
-  const ERROR_MESSAGES: Record<string, string> = {
-    missing_fields: "Please fill in both fields.",
-    ai_timeout: "AI service timed out — please click Analyze again 🔄",
-    ai_rate_limit: "AI service is busy right now, please wait a moment and retry 🔄",
-    parse_error: "AI returned an unexpected response. Please try again.",
-    analysis_failed: "Network hiccup caused the request to fail — please click Analyze again 🔄",
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
     if (!resume.trim() || !jobDescription.trim()) {
-      setError("Please fill in both fields.");
+      setError(ERROR_MESSAGES["missing_fields"]);
       return;
     }
 
     setLoading(true);
-    setLoadingStep(1);
-    setError("");
-
-    // 模拟进度步骤
-    const stepTimer = setTimeout(() => setLoadingStep(2), 5000);
+    setError(null);
 
     try {
       const res = await fetch("/api/analyze", {
@@ -43,31 +52,26 @@ export default function HomePage() {
         body: JSON.stringify({ resume, jobDescription }),
       });
 
-      clearTimeout(stepTimer);
-
       const data = await res.json();
 
       if (!res.ok) {
-        const code = data?.code as string | undefined;
-        setError(ERROR_MESSAGES[code ?? "analysis_failed"] ?? ERROR_MESSAGES["analysis_failed"]);
+        const code = (data?.code as string) ?? "analysis_failed";
+        setError(ERROR_MESSAGES[code] ?? ERROR_MESSAGES["analysis_failed"]);
         setLoading(false);
-        setLoadingStep(0);
         return;
       }
 
       router.push(`/result/${data.id}`);
     } catch {
-      clearTimeout(stepTimer);
       setError(ERROR_MESSAGES["analysis_failed"]);
       setLoading(false);
-      setLoadingStep(0);
     }
   };
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
       {/* Header */}
-      <header className="border-b border-blue-100 bg-white/80 backdrop-blur">
+      <header className="border-b border-blue-100 bg-white/80 backdrop-blur sticky top-0 z-10">
         <div className="mx-auto max-w-4xl px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-2xl">📄</span>
@@ -100,7 +104,7 @@ export default function HomePage() {
         {/* Form */}
         <form
           onSubmit={handleSubmit}
-          className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8"
+          className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8"
         >
           <div className="grid gap-6 md:grid-cols-2">
             {/* Resume */}
@@ -113,9 +117,11 @@ export default function HomePage() {
                 onChange={(e) => setResume(e.target.value)}
                 placeholder="Paste your resume text here..."
                 rows={16}
+                disabled={loading}
                 className="w-full rounded-xl border border-gray-200 p-4 text-sm
                            focus:outline-none focus:ring-2 focus:ring-blue-400
-                           resize-none placeholder:text-gray-400"
+                           resize-none placeholder:text-gray-400
+                           disabled:bg-gray-50 disabled:text-gray-400"
               />
             </div>
 
@@ -129,26 +135,63 @@ export default function HomePage() {
                 onChange={(e) => setJobDescription(e.target.value)}
                 placeholder="Paste the job description here..."
                 rows={16}
+                disabled={loading}
                 className="w-full rounded-xl border border-gray-200 p-4 text-sm
                            focus:outline-none focus:ring-2 focus:ring-blue-400
-                           resize-none placeholder:text-gray-400"
+                           resize-none placeholder:text-gray-400
+                           disabled:bg-gray-50 disabled:text-gray-400"
               />
             </div>
           </div>
 
-          {error && (
-            <div className="mt-4 text-center">
-              <p className="text-sm text-red-600">{error}</p>
+          {/* ── Loading 面板（简洁 spinner）──────────────────────── */}
+          {loading && (
+            <div className="mt-6 flex flex-col items-center gap-3 rounded-xl bg-blue-50 border border-blue-100 py-6 px-4">
+              <svg
+                className="animate-spin h-8 w-8 text-blue-500"
+                viewBox="0 0 24 24"
+                fill="none"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12" cy="12" r="10"
+                  stroke="currentColor" strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                />
+              </svg>
+              <p className="text-sm font-medium text-blue-700 text-center">
+                AI is analyzing your resume…
+              </p>
+              <p className="text-xs text-gray-400">Results in ~15 seconds</p>
+            </div>
+          )}
+
+          {/* ── 错误分级提示面板 ────────────────────────────────── */}
+          {error && !loading && (
+            <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4">
+              <div className="flex items-start gap-3">
+                <span className="text-red-500 text-lg mt-0.5">⚠️</span>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-red-700">{error.title}</p>
+                  <p className="text-xs text-red-500 mt-0.5">{error.hint}</p>
+                </div>
+              </div>
               <button
                 type="button"
-                onClick={handleSubmit as any}
-                className="mt-2 text-sm text-blue-600 underline hover:text-blue-800"
+                onClick={() => handleSubmit()}
+                className="mt-3 w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold
+                           text-white hover:bg-red-700 active:bg-red-800 transition-colors"
               >
-                🔄 Try Again
+                🔄 Retry Analysis
               </button>
             </div>
           )}
 
+          {/* ── 提交按钮 ─────────────────────────────────────────── */}
           <div className="mt-6 text-center">
             <button
               type="submit"
@@ -156,23 +199,25 @@ export default function HomePage() {
               className="inline-flex items-center gap-2 rounded-xl bg-blue-600
                          px-10 py-4 text-lg font-bold text-white
                          hover:bg-blue-700 active:bg-blue-800
-                         disabled:opacity-60 transition-colors shadow-md"
+                         disabled:opacity-50 disabled:cursor-not-allowed
+                         transition-colors shadow-md"
             >
               {loading ? (
                 <>
                   <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <circle className="opacity-25" cx="12" cy="12" r="10"
+                      stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor"
                       d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  {loadingStep === 1 ? "Analyzing keywords… (1/2)" : "Generating suggestions… (2/2)"}
+                  Analyzing…
                 </>
               ) : (
                 "Analyze My Resume →"
               )}
             </button>
             <p className="mt-3 text-xs text-gray-400">
-              Free analysis · No account required · Results in ~10 seconds
+              Free analysis · No account required · Results in ~15 seconds
             </p>
           </div>
         </form>
