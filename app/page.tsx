@@ -8,7 +8,19 @@ export default function HomePage() {
   const [resume, setResume] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(0);
   const [error, setError] = useState("");
+
+  const [loadingStep, setLoadingStep] = useState(0);
+
+  // 友好错误提示映射
+  const ERROR_MESSAGES: Record<string, string> = {
+    missing_fields: "Please fill in both fields.",
+    ai_timeout: "AI service timed out — please click Analyze again 🔄",
+    ai_rate_limit: "AI service is busy right now, please wait a moment and retry 🔄",
+    parse_error: "AI returned an unexpected response. Please try again.",
+    analysis_failed: "Network hiccup caused the request to fail — please click Analyze again 🔄",
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,7 +30,11 @@ export default function HomePage() {
     }
 
     setLoading(true);
+    setLoadingStep(1);
     setError("");
+
+    // 模拟进度步骤
+    const stepTimer = setTimeout(() => setLoadingStep(2), 5000);
 
     try {
       const res = await fetch("/api/analyze", {
@@ -27,13 +43,24 @@ export default function HomePage() {
         body: JSON.stringify({ resume, jobDescription }),
       });
 
-      if (!res.ok) throw new Error("Analysis failed");
+      clearTimeout(stepTimer);
 
       const data = await res.json();
+
+      if (!res.ok) {
+        const code = data?.code as string | undefined;
+        setError(ERROR_MESSAGES[code ?? "analysis_failed"] ?? ERROR_MESSAGES["analysis_failed"]);
+        setLoading(false);
+        setLoadingStep(0);
+        return;
+      }
+
       router.push(`/result/${data.id}`);
     } catch {
-      setError("Something went wrong. Please try again.");
+      clearTimeout(stepTimer);
+      setError(ERROR_MESSAGES["analysis_failed"]);
       setLoading(false);
+      setLoadingStep(0);
     }
   };
 
@@ -110,7 +137,16 @@ export default function HomePage() {
           </div>
 
           {error && (
-            <p className="mt-4 text-sm text-red-600 text-center">{error}</p>
+            <div className="mt-4 text-center">
+              <p className="text-sm text-red-600">{error}</p>
+              <button
+                type="button"
+                onClick={handleSubmit as any}
+                className="mt-2 text-sm text-blue-600 underline hover:text-blue-800"
+              >
+                🔄 Try Again
+              </button>
+            </div>
           )}
 
           <div className="mt-6 text-center">
@@ -129,7 +165,7 @@ export default function HomePage() {
                     <path className="opacity-75" fill="currentColor"
                       d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  Analyzing…
+                  {loadingStep === 1 ? "Analyzing keywords… (1/2)" : "Generating suggestions… (2/2)"}
                 </>
               ) : (
                 "Analyze My Resume →"
