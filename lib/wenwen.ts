@@ -21,6 +21,11 @@ export function getAI(): OpenAI {
     _ai = new OpenAI({
       apiKey: process.env.WENWEN_API_KEY!,
       baseURL: normalizeBaseURL(rawURL),
+      // ⚠️ 强制使用 Web Fetch API，避免 OpenAI SDK 在 Cloudflare Workers
+      // 环境下回退到 Node.js http 模块（nodejs_compat 的 http 实现
+      // 对出站 TLS 连接有限制，导致 "Connection error"）。
+      // globalThis.fetch 在 Workers 里是原生 Fetch API，无此限制。
+      fetch: (url, init) => globalThis.fetch(url as string, init),
     });
   }
   return _ai;

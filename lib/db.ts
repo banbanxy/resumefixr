@@ -1,6 +1,9 @@
 // Cloudflare D1 数据库适配
-// 生产环境：通过 request 上下文获取 D1 binding
+// 生产环境：通过 getCloudflareContext() 获取 D1 binding（静态 import，Workers ESM 兼容）
 // 本地开发：自动 fallback 到 better-sqlite3
+
+// NOTE: 必须用静态 import，不能用 require()——Workers bundle 是 ESM，不支持 CJS require
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 // 最小 D1 类型定义（避免引入完整 @cloudflare/workers-types）
 interface D1PreparedStatement {
@@ -76,17 +79,23 @@ function getLocalDB(): D1Database {
 }
 
 // ── 对外接口 ───────────────────────────────────────────────────────────────
-export function getDB(request: Request): D1Database {
-  // @ts-ignore - Cloudflare Workers 环境变量
-  const env = (request as any).env as Env;
-  if (env?.DB) return env.DB;
+export function getDB(_request?: Request): D1Database {
+  // 生产环境（Cloudflare Workers）：
+  // OpenNext 通过 AsyncLocalStorage 把 Cloudflare env 注入到 request context。
+  // getCloudflareContext() 从 AsyncLocalStorage 读取，必须在请求处理期间调用。
+  try {
+    const ctx = getCloudflareContext() as any;
+    if (ctx?.env?.DB) return ctx.env.DB as D1Database;
+  } catch {
+    // 非 Cloudflare 运行时（本地 next dev）时 getCloudflareContext 会抛出，继续 fallback
+  }
 
   // 本地开发模式：使用 SQLite
   if (process.env.NODE_ENV === "development") {
     return getLocalDB();
   }
 
-  throw new Error("D1 database not bound. Check wrangler.toml configuration.");
+  throw new Error("D1 database not bound. Check wrangler.toml [[d1_databases]] configuration.");
 }
 
 // 初始化数据库表结构（需要在 D1 控制台或 wrangler 中执行）
